@@ -25,8 +25,12 @@ source .venv/bin/activate   # Linux/macOS
 
 pip install -r requirements.txt
 
-2. CSV-Datei bereitstellen:
+3. CSV-Datei bereitstellen:
     Lege die Datei ´german_credit_data.csv´ in das Projektverzeichnis.
+
+## ▶️ Starten
+
+- streamlit run app.py
 
 ## 📂 Projektstruktur
 Credit-Risk-Modeling-Streamlit-App/
