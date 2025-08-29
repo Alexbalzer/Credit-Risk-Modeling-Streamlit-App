@@ -9,7 +9,6 @@ import numpy as np
 def load_artifacts():
     # Modell laden:
     model_files = ["xgb_credit_model.pkl", "extre_trees_credit_model.pkl"]
-    
     model = None
     used_model_path = None
     for mf in model_files:
@@ -73,6 +72,8 @@ if "model_toast_done" not in st.session_state:
 # Sidebar Menü:
 with st.sidebar:
     st.header("Eingaben")
+    
+    # Einfache Defaults:
     age = st.number_input("Age", min_value=18, max_value=80, value=30, step=1)
     sex = st.selectbox("Sex", options=options("Sex") or ["male", "female"])
     job = st.number_input("Job (0-3)", min_value=0, max_value=3, value=1, step=1)
@@ -82,12 +83,12 @@ with st.sidebar:
     purpose = st.selectbox("Purpose", options=options("Purpose"))
     credit_amount = st.number_input("Credit amount", min_value=0, value=1000, step=100)
     duration = st.number_input("Duration (months)", min_value=1, value=12, step=1)
-
+    
     # Entscheidungsschwellee:
     st.divider()
     st.subheader("Einstellungen")
-    threshold = st.slider("Entscheidungsschwelle ('Bad') ab:", 0.005, 0.95, 0.5, 0.01)
-
+    threshold = st.slider("Entscheidungsschwelle ('Bad' ab):", 0.05, 0.95, 0.50, 0.01)
+    
 
 # Eine modellkonforme Eingabe erzeugen:
 row = {
@@ -119,11 +120,10 @@ with tab_pred:
         if st.button("Predict risk"):
             X = input_df
             proba = model.predict_proba(X)[0]
-            #print(proba)
             p_bad = float(proba[1])
             is_bad = p_bad >= threshold
             st.metric("Bad-Risiko", f"{p_bad:.1%}")
-            st.progress((p_bad))
+            st.progress(min(max(p_bad, 0.0), 1.0))
             if is_bad:
                 st.error(f"Einstuffung: **BAD** $\geq$ {threshold:.0%}")
             else:
@@ -153,10 +153,7 @@ with tab_whatif:
     else:
     # aktuellen Wert des Features holen
         current_val = float(base[feature_to_vary])
-
-        # zwei Spalten nebeneinander
         c1, c2 = st.columns(2)
-
         with c1:
             # Standardwerte für Min/Max-Bereich
             min_default = max(0.0, current_val * 0.5)
@@ -174,7 +171,6 @@ with tab_whatif:
                 value=(float(min_default), float(max_default)),
                 step=1.0
             )
-
         with c2:
             # Slider für Anzahl der Schritte
             steps = st.slider("Schritte", 3, 50, 11)
@@ -187,45 +183,48 @@ with tab_whatif:
 
         # Für Modell: dieselben Werte (numerisch)
         vary_values_enc = vary_values_raw
+    
+    b1, b2 = st.columns([1, 1])
+    with b1:
+        if st.button("What-if berechnen"):
+            st.session_state["whatif_active"] = True
+    with b2:
+        if st.button("Auto-Update stoppen"):
+            st.session_state["whatif_active"] = False
+        
+    if st.session_state["whatif_active"]:
+        if (min_val is not None) and (max_val is not None) and (max_val <= min_val):
+            st.warning("Max muss größer als Min sein.")
+        else:
+            probs = []
+            labels = []
+            for val_raw, val_enc in zip(cats, vary_values_enc):
+                row_mut = base.copy()
+                row_mut[feature_to_vary] = val_enc
+                X_mut = pd.DataFrame([row_mut])[FEATURE_ORDER]
+                p_bad = model.predict_proba(X_mut)[0][1]
+                probs.append(p_bad)
+                labels.append(val_raw)
+                
+            chart_df = pd.DataFrame({
+                "Wert": labels,
+                "Bad-Risiko": probs
+            })
+            chart_df.set_index("Wert")
 
-    if st.button("What-if berechnen"):
-        base = input_df.iloc[0].copy()
-        probs = []
-        labels = []
-    # Alle möglichen Werte für das gewählte Feature durchlaufen
-        for val_raw, val_enc in zip(cats, vary_values_enc):
-            row_mut = base.copy()
-            row_mut[feature_to_vary] = val_enc
-    # Eingabe ins gleiche Feature-Format bringen
-            X_mut = pd.DataFrame([row_mut])[FEATURE_ORDER]
-    # Modellvorhersage (Bad-Risiko)
-            p_bad = model.predict_proba(X_mut)[0][1]
-            probs.append(p_bad)
-            labels.append(val_raw)
-    # DataFrame für die Ergebnisse
-        chart_df = pd.DataFrame({
-            "Wert": labels,
-            "Bad-Risiko": probs
-        })
-        chart_df.set_index("Wert")
-        print(chart_df)
-    # Bar-Chart mit Plotly
-        fig = px.bar(
-            chart_df,
-            x="Wert",
-            y="Bad-Risiko",
-            text="Bad-Risiko",
-            color="Bad-Risiko"
-        )
-    # Werte über den Balken anzeigen
-        fig.update_traces(texttemplate="%{text:.2f}", textposition="outside")
-
-        fig.update_layout(
-            yaxis=dict(title="Risiko"),
-            xaxis=dict(title=feature_to_vary),
-            title=f"What-if Analyse für {feature_to_vary}"
-        )
-        # Chart in Streamlit einbetten
-        st.plotly_chart(fig)
-
+            fig = px.bar(
+                chart_df,
+                x="Wert",
+                y="Bad-Risiko",
+                text="Bad-Risiko",
+                color="Bad-Risiko"
+            )
+            fig.update_traces(texttemplate="%{text:.2f}", textposition="outside")
+            fig.update_layout(
+                yaxis=dict(title="Risiko"),
+                xaxis=dict(title=feature_to_vary),
+                title=f"What-if Analyse für {feature_to_vary}"
+            )
+            st.plotly_chart(fig)
+    
     
