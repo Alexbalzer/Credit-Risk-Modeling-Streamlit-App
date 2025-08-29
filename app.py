@@ -14,7 +14,7 @@ from model_utils import (
     MODEL_PATH,
 )
 
-st.set_page_config(page_title="Credit Risk Modeling", layout="wide")
+st.set_page_config(page_title="Credit Risk Modeling",page_icon="💳", layout="wide")
 
 st.title("Credit Risk Modeling – Streamlit App")
 st.caption("Rekonstruiert aus einer Notebook-Lösung: EDA, Training und Vorhersage")
@@ -146,7 +146,7 @@ with tab_predict:
                 vmin = float(np.nanmin(df[col])) if col in df.columns else 0.0
                 vmax = float(np.nanmax(df[col])) if col in df.columns else 100.0
                 default = float(np.nanmedian(df[col])) if col in df.columns else 0.0
-                inputs[col] = st.number_input(col, value=default, min_value=vmin, max_value=vmax, step=1.0, format="%.3f")
+                inputs[col] = st.number_input(col, value=default, min_value=vmin, max_value=vmax, step=1.0, format="%.1f")
             else:
                 # Kategorische Auswahl aus Trainingsdaten
                 cats = encoders[col].classes_.tolist() if col in encoders else sorted(df[col].dropna().unique().tolist())
